@@ -320,6 +320,40 @@ class Bundle(EasyBlock):
             # close log for this component
             comp.close_log()
 
+    def make_module_req_guess(self):
+        """
+        Set module requirements from all comppnents, e.g. $PATH, etc.
+        During the install step, we only set these requirements temporarily.
+        Later on when building the module, those paths are not considered.
+        Therefore, iterate through all the components again and gather
+        the requirements.
+
+        Do not remove duplicates or check for existance of folders,
+        as this is done in the generic EasyBlock while creating
+        the modulefile already.
+        """
+        final_reqs = {}
+
+        for _, cfg in enumerate(self.comp_cfgs):
+            self.log.info("Gathering module paths for component %s v%s", cfg['name'], cfg['version'])
+            comp = cfg.easyblock(cfg)
+            reqs = comp.make_module_req_guess()
+
+            if not reqs or not isinstance(reqs, dict):
+                self.log.warning("Expected requirements to be a dict but is not. Therefore, this component is skipped.")
+                continue
+
+            for key, value in sorted(reqs.items()):
+                if isinstance(reqs, string_type):
+                    self.log.warning("Hoisting string value %s into a list before iterating over it", value)
+                    value = [value]
+                if key not in final_reqs:
+                    final_reqs[key] = value
+                else:
+                    final_reqs[key] += value
+
+        return final_reqs
+
     def make_module_extra(self, *args, **kwargs):
         """Set extra stuff in module file, e.g. $EBROOT*, $EBVERSION*, etc."""
         if not self.altroot and not self.altversion:
