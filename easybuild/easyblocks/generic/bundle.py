@@ -74,6 +74,9 @@ class Bundle(EasyBlock):
         # list of EasyConfig instances for components
         self.comp_cfgs = []
 
+        # list of EasyBlocks for components
+        self.comp_blocks = []
+
         # list of EasyConfig instances of components for which to run sanity checks
         self.comp_cfgs_sanity_check = []
 
@@ -195,6 +198,7 @@ class Bundle(EasyBlock):
                 self.cfg.update('patches', comp_cfg['patches'])
 
             self.comp_cfgs.append(comp_cfg)
+            self.comp_blocks.append(comp_cfg.easyblock(comp_cfg))
 
         self.cfg.update('checksums', checksums_patches)
 
@@ -243,13 +247,11 @@ class Bundle(EasyBlock):
     def install_step(self):
         """Install components, if specified."""
         comp_cnt = len(self.cfg['components'])
-        for idx, cfg in enumerate(self.comp_cfgs):
+        for idx, (cfg, comp) in enumerate(zip(self.comp_cfgs, self.comp_blocks)):
 
             print_msg("installing bundle component %s v%s (%d/%d)..." %
                       (cfg['name'], cfg['version'], idx + 1, comp_cnt))
             self.log.info("Installing component %s v%s using easyblock %s", cfg['name'], cfg['version'], cfg.easyblock)
-
-            comp = cfg.easyblock(cfg)
 
             # correct build/install dirs
             comp.builddir = self.builddir
@@ -334,9 +336,8 @@ class Bundle(EasyBlock):
         """
         final_reqs = {}
 
-        for _, cfg in enumerate(self.comp_cfgs):
+        for cfg, comp in zip(self.comp_cfgs, self.comp_blocks):
             self.log.info("Gathering module paths for component %s v%s", cfg['name'], cfg['version'])
-            comp = cfg.easyblock(cfg)
             reqs = comp.make_module_req_guess()
 
             if not reqs or not isinstance(reqs, dict):
